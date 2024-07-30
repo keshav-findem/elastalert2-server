@@ -1,10 +1,9 @@
-FROM alpine:3.20 as build-elastalert
+# Stage 1: Build ElastAlert
+FROM alpine:3.20 AS build-elastalert
 ARG ELASTALERT_VERSION=2.19.0
 ENV ELASTALERT_VERSION=${ELASTALERT_VERSION}
-# URL from which to download ElastAlert 2
 ARG ELASTALERT_URL=https://github.com/jertel/elastalert2/archive/refs/tags/$ELASTALERT_VERSION.zip
 ENV ELASTALERT_URL=${ELASTALERT_URL}
-# ElastAlert 2 home directory full path
 ENV ELASTALERT_HOME /opt/elastalert
 
 WORKDIR /opt
@@ -14,7 +13,13 @@ RUN apk add --update --no-cache \
     py3-pip \
     py3-setuptools \
     py3-wheel \
-    wget && \
+    wget \
+    unzip \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    build-base \
+    python3-dev && \
     # Download and unpack ElastAlert 2
     wget -O elastalert.zip "${ELASTALERT_URL}" && \
     unzip elastalert.zip && \
@@ -32,7 +37,8 @@ RUN python3 -m venv /opt/elastalert2-venv && \
     pip3 install dist/*.tar.gz && \
     deactivate
 
-FROM node:22.4-alpine3.20 as build-server
+# Stage 2: Build ElastAlert Server
+FROM node:22.4-alpine3.20 AS build-server
 
 WORKDIR /opt/elastalert-server
 
@@ -42,6 +48,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
+# Stage 3: Create Final Image
 FROM node:22.4-alpine3.20
 
 LABEL description="ElastAlert2 Server"
